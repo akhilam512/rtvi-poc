@@ -1,101 +1,136 @@
+"use client";
+
 import Image from "next/image";
+import { useState, useEffect } from "react";
+import { RTVIClient } from "realtime-ai";
+import { DailyTransport } from "realtime-ai-daily";
+import { RTVIClientProvider } from "realtime-ai-react";
+import { DeviceSelector } from "./components/DeviceSelector";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [rtviClient, setRtviClient] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  useEffect(() => {
+    console.log("rtviClient state:", rtviClient);
+    console.log("isConnected state:", isConnected);
+  }, [rtviClient, isConnected]);
+
+  const handleConnect = async () => {
+    console.log("handleConnect called, current isConnected:", isConnected);
+    if (isConnected) {
+      console.log("Disconnecting...");
+      await rtviClient?.disconnect();
+      setIsConnected(false);
+      setRtviClient(null);
+      console.log("Disconnected, rtviClient set to null");
+      return;
+    }
+
+    console.log("Connecting...");
+    const dailyTransport = new DailyTransport();
+    const client = new RTVIClient({
+      transport: dailyTransport,
+      params: {
+        baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/api",
+        services: {
+          llm: "together",
+          tts: "cartesia",
+        },
+        config: [
+          {
+            service: "tts",
+            options: [
+              { name: "voice", value: "79a125e8-cd45-4c13-8a67-188112f4dd22" }
+            ]
+          },
+          {
+            service: "llm",
+            options: [
+              { name: "model", value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo" },
+              {
+                name: "messages",
+                value: [
+                  {
+                    role: "system",
+                    content:
+                      "You are a assistant called ExampleBot. You can ask me anything. Keep responses brief and legible. Your responses will be converted to audio, so please avoid using any special characters except '!' or '?'.",
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        enableMic: true,
+        enableCam: false,
+        timeout: 15 * 1000,
+        callbacks: {
+          onConnected: () => {
+            console.log("[CALLBACK] User connected");
+            setIsConnected(true);
+          },
+          onDisconnected: () => {
+            console.log("[CALLBACK] User disconnected");
+            setIsConnected(false);
+          },
+          onTransportStateChanged: (state) => {
+            console.log("[CALLBACK] State change:", state);
+          },
+          onBotConnected: () => {
+            console.log("[CALLBACK] Bot connected");
+          },
+          onBotDisconnected: () => {
+            console.log("[CALLBACK] Bot disconnected");
+          },
+          onBotReady: () => {
+            console.log("[CALLBACK] Bot ready to chat!");
+          },
+        },
+      }
+    });
+
+    try {
+      console.log("Attempting to connect...");
+      await client.connect();
+      console.log("Connected successfully");
+      setRtviClient(client);
+    } catch (e) {
+      console.error("Failed to connect:", e);
+    }
+  };
+
+  return (
+    <main className="container">
+      <RTVIClientProvider client={rtviClient}>
+        <DeviceSelector />
+      </RTVIClientProvider>
+
+      <button 
+        onClick={handleConnect}
+        className="connect-button"
+      >
+        {isConnected ? "Disconnect" : "Connect"}
+      </button>
+
+      <style jsx>{`
+        .container {
+          padding: 2rem;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+        .connect-button {
+          background-color: #0070f3;
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 1rem;
+        }
+        .connect-button:hover {
+          background-color: #0051b3;
+        }
+      `}</style>
+    </main>
   );
 }
