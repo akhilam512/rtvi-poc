@@ -1,15 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { RTVIClient } from "realtime-ai";
 import { DailyTransport } from "realtime-ai-daily";
 import { RTVIClientProvider } from "realtime-ai-react";
 import { DeviceSelector } from "./components/DeviceSelector";
+import { defaultServices, defaultConfigV2 } from "@/rtvi.config";
 
 export default function Home() {
   const [rtviClient, setRtviClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isDevicesInitialized, setIsDevicesInitialized] = useState(false);
 
   useEffect(() => {
     console.log("rtviClient state:", rtviClient);
@@ -33,40 +34,18 @@ export default function Home() {
       transport: dailyTransport,
       params: {
         baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/api",
-        services: {
-          llm: "together",
-          tts: "cartesia",
+        endpoints: {
+          connect: "/connect",
         },
-        config: [
-          {
-            service: "tts",
-            options: [
-              { name: "voice", value: "79a125e8-cd45-4c13-8a67-188112f4dd22" }
-            ]
-          },
-          {
-            service: "llm",
-            options: [
-              { name: "model", value: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo" },
-              {
-                name: "messages",
-                value: [
-                  {
-                    role: "system",
-                    content:
-                      "You are a assistant called ExampleBot. You can ask me anything. Keep responses brief and legible. Your responses will be converted to audio, so please avoid using any special characters except '!' or '?'.",
-                  }
-                ]
-              }
-            ]
-          }
-        ],
+        requestData: {
+          services: defaultServices,
+          config: defaultConfigV2, // Use defaultConfigV2 from rtvi.config.js
+        },
         enableMic: true,
         enableCam: false,
-        timeout: 15 * 1000,
         callbacks: {
           onConnected: () => {
-            console.log("[CALLBACK] User connected");
+            console.log("[CALLBACK] User connected.");
             setIsConnected(true);
           },
           onDisconnected: () => {
@@ -86,7 +65,8 @@ export default function Home() {
             console.log("[CALLBACK] Bot ready to chat!");
           },
         },
-      }
+      }, 
+      timeout: 15 * 1000,
     });
 
     try {
@@ -99,17 +79,41 @@ export default function Home() {
     }
   };
 
+  const handleInitDevices = async () => {
+    if (rtviClient && !isDevicesInitialized) {
+      console.log("Initializing devices...");
+      try {
+        await rtviClient.initDevices();
+        console.log("Devices initialized successfully");
+        setIsDevicesInitialized(true);
+      } catch (error) {
+        console.error("Error initializing devices:", error);
+      }
+    } else if (!rtviClient) {
+      console.log("No RTVIClient instance found. Please connect first.");
+    }
+  };
+
   return (
     <main className="container">
-      <RTVIClientProvider client={rtviClient}>
-        <DeviceSelector />
-      </RTVIClientProvider>
+      {rtviClient && (
+        <RTVIClientProvider client={rtviClient}>
+          <DeviceSelector isInitialized={isDevicesInitialized} />
+        </RTVIClientProvider>
+      )}
 
       <button 
         onClick={handleConnect}
         className="connect-button"
       >
         {isConnected ? "Disconnect" : "Connect"}
+      </button>
+
+      <button 
+        onClick={handleInitDevices}
+        className="init-devices-button"
+      >
+        {isDevicesInitialized ? "Devices Initialized" : "Initialize Devices"}
       </button>
 
       <style jsx>{`
@@ -129,6 +133,23 @@ export default function Home() {
         }
         .connect-button:hover {
           background-color: #0051b3;
+        }
+        .init-devices-button {
+          background-color: #4caf50;
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 1rem;
+          margin-left: 1rem;
+        }
+        .init-devices-button:hover {
+          background-color: #45a049;
+        }
+        .init-devices-button:disabled {
+          background-color: #cccccc;
+          cursor: not-allowed;
         }
       `}</style>
     </main>
