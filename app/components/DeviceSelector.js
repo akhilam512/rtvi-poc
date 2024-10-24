@@ -1,95 +1,65 @@
-"use client";
-
-import { useRTVIClientMediaDevices } from "realtime-ai-react";
 import { useEffect } from "react";
+import { useRTVIClientMediaDevices } from "realtime-ai-react";
 
-export function DeviceSelector() {
-    console.log('DeviceSelector component rendering');
-  const {
-    availableMics,
-    availableCams,
-    selectedMic,
-    selectedCam,
-    updateMic,
-    updateCam
-  } = useRTVIClientMediaDevices();
-
-  // Debug logging
+export const DeviceSelector = ({ hideMeter = false }) => {
+  const { availableMics, selectedMic, updateMic } = useRTVIClientMediaDevices();
+  console.log("Number of availableMics: ", availableMics.length);
   useEffect(() => {
-    console.log('Available Mics:', availableMics);
-    console.log('Available Cams:', availableCams);
-    console.log('Selected Mic:', selectedMic);
-    console.log('Selected Cam:', selectedCam);
-  }, [availableMics, availableCams, selectedMic, selectedCam]);
+    console.log("Selected mic updated:", selectedMic);
+    updateMic(selectedMic?.deviceId);
+  }, [updateMic, selectedMic]);
 
-  if (!availableMics.length && !availableCams.length) {
-    console.log('No devices available');
-    return <div>Waiting for device information...</div>;
-  }
+  const handleMicChange = (deviceId) => {
+    console.log("Mic changed to:", deviceId);
+    updateMic(deviceId);
+  };
 
   return (
-    <div className="device-selector">
-      <div className="device-group">
-        <label htmlFor="mic-select">Microphone: </label>
-        {availableMics.length > 0 ? (
-          <select 
-            id="mic-select"
-            value={selectedMic?.deviceId || ''}
-            onChange={(e) => {
-              console.log('Updating mic to:', e.target.value);
-              updateMic(e.target.value);
-            }}
-          >
-            {availableMics.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `Microphone ${device.deviceId}`}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <div className="no-devices">No microphones detected</div>
+    <div className="flex flex-col flex-wrap gap-4">
+      <label>
+        Microphone:
+        {availableMics.length === 0 && (
+          <span className="ml-4 mr-4">No devices</span>
         )}
-      </div>
-
-      <div className="device-group">
-        <label htmlFor="cam-select">Camera: </label>
-        {availableCams.length > 0 ? (
-          <select
-            id="cam-select"
-            value={selectedCam?.deviceId || ''}
-            onChange={(e) => {
-              console.log('Updating camera to:', e.target.value);
-              updateCam(e.target.value);
-            }}
-          >
-            {availableCams.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `Camera ${device.deviceId}`}
+        <select
+          onChange={(e) => handleMicChange(e.currentTarget.value)}
+          value={selectedMic?.deviceId}
+        >
+          {availableMics.length === 0 ? (
+            <>
+              <option value="">None</option>
+            </>
+          ) : (
+            availableMics.map((mic) => (
+              <option key={mic.deviceId} value={mic.deviceId}>
+                {mic.label}
               </option>
-            ))}
-          </select>
-        ) : (
-          <div className="no-devices">No cameras detected</div>
-        )}
-      </div>
+            ))
+          )}
+        </select>
+      </label>
 
-      <style jsx>{`
-        .device-selector {
-          padding: 1rem;
-        }
-        .device-group {
-          margin-bottom: 1rem;
-        }
-        .device-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-        }
-        .device-group select {
-          width: 100%;
-          padding: 0.5rem;
-          border-radius: 4px;
-        }
-      `}</style>
+      {/* Uncomment this section to add speaker selection
+      <label>
+        Speakers:
+        <select
+          onChange={(e) => handleSpeakerChange(e.target.value)}
+          defaultValue={currentSpeaker?.device.deviceId}
+        >
+          {speakers.length === 0 ? (
+            <option value="default">Use system default</option>
+          ) : (
+            speakers.map((m) => (
+              <option key={m.device.deviceId} value={m.device.deviceId}>
+                {m.device.label}
+              </option>
+            ))
+          )}
+        </select>
+      </label>
+      */}
     </div>
   );
-}
+};
+
+export default DeviceSelector;

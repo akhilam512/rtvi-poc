@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RTVIClient } from "realtime-ai";
 import { DailyTransport } from "realtime-ai-daily";
 import { RTVIClientProvider } from "realtime-ai-react";
@@ -8,22 +8,68 @@ import { DeviceSelector } from "./components/DeviceSelector";
 import { defaultServices, defaultConfigV2 } from "@/rtvi.config";
 
 export default function Home() {
-  const [rtviClient, setRtviClient] = useState(null);
+  const rtviClientRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isDevicesInitialized, setIsDevicesInitialized] = useState(false);
 
   useEffect(() => {
-    console.log("rtviClient state:", rtviClient);
+    if (!rtviClientRef.current) {
+      const dailyTransport = new DailyTransport();
+      const client = new RTVIClient({
+        transport: dailyTransport,
+        params: {
+          baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/api",
+          endpoints: {
+            connect: "/connect",
+          },
+          requestData: {
+            services: defaultServices,
+            config: defaultConfigV2,
+          },
+          enableMic: true,
+          enableCam: false,
+          callbacks: {
+            onConnected: () => {
+              console.log("[CALLBACK] User connected.");
+              setIsConnected(true);
+            },
+            onDisconnected: () => {
+              console.log("[CALLBACK] User disconnected");
+              setIsConnected(false);
+            },
+            onTransportStateChanged: (state) => {
+              console.log("[CALLBACK] State change:", state);
+            },
+            onBotConnected: () => {
+              console.log("[CALLBACK] Bot connected");
+            },
+            onBotDisconnected: () => {
+              console.log("[CALLBACK] Bot disconnected");
+            },
+            onBotReady: () => {
+              console.log("[CALLBACK] Bot ready to chat!");
+            },
+          },
+        },
+        timeout: 15 * 1000,
+      });
+
+      rtviClientRef.current = client;
+    }
+  }, []); // Empty dependency array ensures this runs only once
+
+  useEffect(() => {
+    console.log("rtviClient ref:", rtviClientRef.current);
     console.log("isConnected state:", isConnected);
-  }, [rtviClient, isConnected]);
+  }, [isConnected]);
 
   const handleConnect = async () => {
     console.log("handleConnect called, current isConnected:", isConnected);
     if (isConnected) {
       console.log("Disconnecting...");
-      await rtviClient?.disconnect();
+      await rtviClientRef.current?.disconnect();
       setIsConnected(false);
-      setRtviClient(null);
+      rtviClientRef.current = null;
       console.log("Disconnected, rtviClient set to null");
       return;
     }
@@ -73,31 +119,32 @@ export default function Home() {
       console.log("Attempting to connect...");
       await client.connect();
       console.log("Connected successfully");
-      setRtviClient(client);
+      rtviClientRef.current = client;
+      setIsConnected(true);
     } catch (e) {
       console.error("Failed to connect:", e);
     }
   };
 
   const handleInitDevices = async () => {
-    if (rtviClient && !isDevicesInitialized) {
+    if (rtviClientRef.current && !isDevicesInitialized) {
       console.log("Initializing devices...");
       try {
-        await rtviClient.initDevices();
+        await rtviClientRef.current.initDevices();
         console.log("Devices initialized successfully");
         setIsDevicesInitialized(true);
       } catch (error) {
         console.error("Error initializing devices:", error);
       }
-    } else if (!rtviClient) {
+    } else if (!rtviClientRef.current) {
       console.log("No RTVIClient instance found. Please connect first.");
     }
   };
 
   return (
     <main className="container">
-      {rtviClient && (
-        <RTVIClientProvider client={rtviClient}>
+      {rtviClientRef.current && (
+        <RTVIClientProvider client={rtviClientRef.current}>
           <DeviceSelector isInitialized={isDevicesInitialized} />
         </RTVIClientProvider>
       )}
